@@ -11,5 +11,6 @@ public class DynamicDatasourceProperties {
     private boolean enable;
     private String defaultDatasource;
     private List<String> datasourceList;
+    private String transactionManagerSuffix;
 
 }
