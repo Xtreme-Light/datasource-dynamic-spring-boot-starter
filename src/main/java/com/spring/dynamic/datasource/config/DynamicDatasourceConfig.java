@@ -7,11 +7,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.beans.factory.support.BeanDefinitionBuilder;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -24,9 +20,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.PriorityOrdered;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Method;
@@ -45,16 +39,10 @@ import java.util.Map;
          )
 @Slf4j
 @Aspect
-public class DynamicDatasourceConfig implements PriorityOrdered, ApplicationContextAware , BeanDefinitionRegistryPostProcessor {
+public class DynamicDatasourceConfig implements PriorityOrdered, ApplicationContextAware {
     private ApplicationContext applicationContext;
-
-    public DynamicDatasourceConfig(DynamicDatasourceProperties dynamicDatasourceProperties
-                                   ) {
-        this.dynamicDatasourceProperties = dynamicDatasourceProperties;
-    }
-
-
-    private final DynamicDatasourceProperties dynamicDatasourceProperties;
+    @Autowired
+    private  DynamicDatasourceProperties dynamicDatasourceProperties;
 
     @Around("@annotation(com.spring.dynamic.datasource.annotation.CurDatasource)")
     public Object around(ProceedingJoinPoint point) throws Throwable {
@@ -105,6 +93,14 @@ public class DynamicDatasourceConfig implements PriorityOrdered, ApplicationCont
         }
         return new DynamicDataSource(bean,maps);
     }
+    //TODO  when do this,dynamicDatasourceProperties is null
+/*    @Bean
+    public BeanDefinitionRegistryPostProcessor dynamicDatasourceManagerRegister() {
+        DynamicDataSourceManagerRegister dynamicDataSourceManagerRegister = new DynamicDataSourceManagerRegister();
+        dynamicDataSourceManagerRegister.setDynamicDatasourceProperties(dynamicDatasourceProperties);
+        dynamicDataSourceManagerRegister.setApplicationContext(applicationContext);
+        return dynamicDataSourceManagerRegister;
+    }*/
 
 
     @Override
@@ -112,39 +108,5 @@ public class DynamicDatasourceConfig implements PriorityOrdered, ApplicationCont
         this.applicationContext = applicationContext;
     }
 
-    /**
-     * 根据定义返回对应的bean
-     * @param beanDefinitionRegistry 注册器
-     * @throws BeansException 创建bean异常
-     */
-    @Override
-    public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry beanDefinitionRegistry) throws BeansException {
-        // 注册Bean定义，容器根据定义返回bean
-        BeanDefinitionBuilder beanDefinitionBuilder = BeanDefinitionBuilder
-                .genericBeanDefinition(PlatformTransactionManager.class);
-        BeanDefinition rawBeanDefinition = beanDefinitionBuilder.getRawBeanDefinition();
-        List<String> datasourceList = dynamicDatasourceProperties.getDatasourceList();
-        assert StringUtils.hasLength(dynamicDatasourceProperties.getTransactionManagerSuffix());
-        //构造bean定义
-        if (CollectionUtils.isEmpty(datasourceList)) {
-            String[] beanNamesForType = applicationContext.getBeanNamesForType(DataSource.class);
-            for (String name : beanNamesForType) {
-                rawBeanDefinition.setDependsOn(name);
-                beanDefinitionRegistry.registerBeanDefinition(name + dynamicDatasourceProperties.getTransactionManagerSuffix(),
-                        rawBeanDefinition);
-            }
-        }else {
-            for (String name : datasourceList) {
-                rawBeanDefinition.setDependsOn(name);
-                beanDefinitionRegistry.registerBeanDefinition(name + dynamicDatasourceProperties.getTransactionManagerSuffix(),
-                        rawBeanDefinition);
-            }
-        }
-    }
 
-    @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory configurableListableBeanFactory) throws BeansException {
-
-
-    }
 }
